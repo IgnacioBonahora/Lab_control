@@ -1,0 +1,19 @@
+# Ignorar archivos de configuración de PyCharm
+.idea/
+
+# Ignorar archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignorar entornos virtuales
+venv/
+env/
+
+# Ignorar archivos de dependencias
+*.egg
+*.egg-info/
+
+# Ignorar configuraciones de sistema
+.DS_Store   # En macOS
+Thumbs.db   # En Windows

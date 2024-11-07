@@ -7,7 +7,11 @@ import os
 IMAGENES_DIR = "./imagenes_alumnos/"
 ADMIN_PASSWORD_FILE = "admin_password.txt"
 
+
 def cargar_imagen_alumno(nro_alumno):
+    """
+    Carga la imagen de un alumno específico y obtiene su encoding facial.
+    """
     try:
         imagen_path = os.path.join(IMAGENES_DIR, f"{nro_alumno}.jpg")
         imagen_alumno = face_recognition.load_image_file(imagen_path)
@@ -21,79 +25,67 @@ def cargar_imagen_alumno(nro_alumno):
         print(f"Error al cargar imagen para el alumno {nro_alumno}: {e}")
         return None
 
-def verificar_acceso(nro_alumno):
-    print("Cargando imagen del alumno...")
-    encoding_alumno = cargar_imagen_alumno(nro_alumno)
-    print(encoding_alumno)
-    if encoding_alumno is None:
-        messagebox.showerror("Error", "Alumno no registrado o imagen inválida.")
-        return
 
+def comparar_imagen_con_captura(encoding_alumno):
+    """
+    Captura una imagen en vivo y la compara con la imagen de referencia del alumno.
+    """
     cap = cv2.VideoCapture(1)
-    acceso_concedido = False
-
     if not cap.isOpened():
         print("Error: No se pudo abrir la cámara.")
         return
 
-    print("Iniciando verificación de acceso...")
-
-    frame_count = 0
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: No se pudo leer el cuadro de la cámara.")
-            break
-
-        rgb_frame = frame[:, :, ::-1]
-
-        # Procesar cada 10 cuadros para reducir carga
-        if frame_count % 10 == 0:
-            try:
-                face_locations = face_recognition.face_locations(rgb_frame, number_of_times_to_upsample=1)
-                print(f"Rostros detectados: {len(face_locations)}")
-
-                if face_locations:
-                    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
-                    for face_encoding, face_location in zip(face_encodings, face_locations):
-                        resultado = face_recognition.compare_faces([encoding_alumno], face_encoding)
-                        top, right, bottom, left = face_location
-
-                        if resultado[0]:
-                            color = (0, 255, 0)  # Verde si coincide
-                            cv2.putText(frame, "Acceso concedido", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                        color, 2)
-                            acceso_concedido = True
-                            print("Acceso concedido")
-                        else:
-                            color = (0, 0, 255)  # Rojo si no coincide
-                            cv2.putText(frame, "Acceso denegado", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                        color, 2)
-                            print("Acceso denegado")
-
-                        cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-                else:
-                    print("No se detectaron rostros en este cuadro.")
-            except Exception as e:
-                print(f"Error durante la verificación del rostro: {e}")
-
-        cv2.imshow("Verificación de acceso en tiempo real", frame)
-        frame_count += 1
-
-        if cv2.waitKey(1) & 0xFF == ord("q") or acceso_concedido:
-            print("Saliendo de la verificación de acceso.")
-            break
-
+    ret, frame = cap.read()
     cap.release()
+
+    if not ret:
+        print("Error: No se pudo capturar la imagen.")
+        return
+
+    # Codificar la imagen capturada en tiempo real
+    desconocida_encoding = face_recognition.face_encodings(frame)
+
+    if len(desconocida_encoding) == 0:
+        print("No se detectó ninguna cara.")
+        return
+
+    # Comparar las dos imágenes
+    resultado = face_recognition.compare_faces([encoding_alumno], desconocida_encoding[0])
+
+    if resultado[0]:
+        print("¡Las caras coinciden! Acceso concedido.")
+        cv2.putText(frame, "Acceso concedido", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+    else:
+        print("Las caras no coinciden. Acceso denegado.")
+        cv2.putText(frame, "Acceso denegado", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+    # Mostrar el resultado
+    cv2.imshow("Verificación de acceso en tiempo real", frame)
+    cv2.waitKey(2000)
     cv2.destroyAllWindows()
-    print("Cámara liberada y ventanas cerradas.")
+
+
+def verificar_acceso(nro_alumno):
+    """
+    Verifica el acceso de un alumno comparando su foto registrada con una foto en tiempo real.
+    """
+    encoding_alumno = cargar_imagen_alumno(nro_alumno)
+    if encoding_alumno is None:
+        print("Error: No se pudo cargar el encoding del alumno.")
+        return
+
+    comparar_imagen_con_captura(encoding_alumno)
+
 
 def registrar_alumno(nro_alumno):
+    """
+    Registra un nuevo alumno tomando una foto y guardándola con su número de identificación.
+    """
     if os.path.exists(os.path.join(IMAGENES_DIR, f"{nro_alumno}.jpg")):
         messagebox.showerror("Error", "Número de alumno ya registrado.")
         return
 
-    cap = cv2.VideoCapture(1)  # Índice 0 para usar la cámara principal
+    cap = cv2.VideoCapture(1)
     ret, frame = cap.read()
     cap.release()
 
@@ -104,7 +96,12 @@ def registrar_alumno(nro_alumno):
     else:
         messagebox.showerror("Error", "Error al capturar imagen.")
 
+
 def solicitar_registro():
+    """
+    Solicita la contraseña de administrador y el número de alumno para registrar una nueva imagen.
+    """
+
     def registrar():
         password = entry_password.get()
         if verificar_password(password):
@@ -131,11 +128,19 @@ def solicitar_registro():
 
     tk.Button(ventana_registro, text="Registrar", command=registrar).pack(pady=20)
 
+
 def verificar_password(password):
+    """
+    Verifica si la contraseña proporcionada es correcta.
+    """
     with open(ADMIN_PASSWORD_FILE, "r") as f:
         return f.read().strip() == password
 
+
 def iniciar_interfaz():
+    """
+    Inicia la interfaz gráfica del sistema.
+    """
     ventana = tk.Tk()
     ventana.title("Sistema de Acceso")
     ventana.geometry("400x300")
@@ -153,6 +158,7 @@ def iniciar_interfaz():
     tk.Button(ventana, text="Registrar Alumno", command=solicitar_registro, font=("Arial", 12)).pack(pady=10)
 
     ventana.mainloop()
+
 
 if __name__ == "__main__":
     if not os.path.exists(ADMIN_PASSWORD_FILE):

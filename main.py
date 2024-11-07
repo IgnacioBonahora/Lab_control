@@ -3,15 +3,19 @@ import face_recognition
 import tkinter as tk
 from tkinter import messagebox
 import os
+import csv
+from datetime import datetime
 
 IMAGENES_DIR = "./imagenes_alumnos/"
 ADMIN_PASSWORD_FILE = "admin_password.txt"
+REGISTRO_ACCESOS = "registro_accesos.csv"
+REGISTRO_ALUMNOS = "registro_alumnos.csv"
 
 
 def cargar_imagen_alumno(nro_alumno):
-    """
-    Carga la imagen de un alumno específico y obtiene su encoding facial.
-    """
+
+   # Carga la imagen de un alumno específico y obtiene su encoding facial.
+
     try:
         imagen_path = os.path.join(IMAGENES_DIR, f"{nro_alumno}.jpg")
         imagen_alumno = face_recognition.load_image_file(imagen_path)
@@ -26,7 +30,16 @@ def cargar_imagen_alumno(nro_alumno):
         return None
 
 
-def comparar_imagen_con_captura(encoding_alumno):
+def registrar_acceso(nro_alumno, acceso_concedido):
+    """
+    Registra cada intento de acceso en un archivo CSV.
+    """
+    with open(REGISTRO_ACCESOS, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), nro_alumno, "Concedido" if acceso_concedido else "Denegado"])
+
+
+def comparar_imagen_con_captura(encoding_alumno, nro_alumno):
     """
     Captura una imagen en vivo y la compara con la imagen de referencia del alumno.
     """
@@ -42,45 +55,38 @@ def comparar_imagen_con_captura(encoding_alumno):
         print("Error: No se pudo capturar la imagen.")
         return
 
-    # Codificar la imagen capturada en tiempo real
     desconocida_encoding = face_recognition.face_encodings(frame)
-
     if len(desconocida_encoding) == 0:
         print("No se detectó ninguna cara.")
         return
 
-    # Comparar las dos imágenes
     resultado = face_recognition.compare_faces([encoding_alumno], desconocida_encoding[0])
+    acceso_concedido = resultado[0]
 
-    if resultado[0]:
-        print("¡Las caras coinciden! Acceso concedido.")
-        cv2.putText(frame, "Acceso concedido", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-    else:
-        print("Las caras no coinciden. Acceso denegado.")
-        cv2.putText(frame, "Acceso denegado", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+    registrar_acceso(nro_alumno, acceso_concedido)
 
-    # Mostrar el resultado
+    mensaje = "Acceso concedido" if acceso_concedido else "Acceso denegado"
+    color = (0, 255, 0) if acceso_concedido else (0, 0, 255)
+    cv2.putText(frame, mensaje, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
     cv2.imshow("Verificación de acceso en tiempo real", frame)
     cv2.waitKey(2000)
     cv2.destroyAllWindows()
 
 
 def verificar_acceso(nro_alumno):
-    """
-    Verifica el acceso de un alumno comparando su foto registrada con una foto en tiempo real.
-    """
+
+    #Verifica el acceso de un alumno comparando su foto registrada con una foto en tiempo real.
+
     encoding_alumno = cargar_imagen_alumno(nro_alumno)
     if encoding_alumno is None:
         print("Error: No se pudo cargar el encoding del alumno.")
         return
 
-    comparar_imagen_con_captura(encoding_alumno)
+    comparar_imagen_con_captura(encoding_alumno, nro_alumno)
 
 
 def registrar_alumno(nro_alumno):
-    """
-    Registra un nuevo alumno tomando una foto y guardándola con su número de identificación.
-    """
+
     if os.path.exists(os.path.join(IMAGENES_DIR, f"{nro_alumno}.jpg")):
         messagebox.showerror("Error", "Número de alumno ya registrado.")
         return
@@ -92,15 +98,22 @@ def registrar_alumno(nro_alumno):
     if ret:
         imagen_path = os.path.join(IMAGENES_DIR, f"{nro_alumno}.jpg")
         cv2.imwrite(imagen_path, frame)
+        registrar_nuevo_alumno(nro_alumno)
         messagebox.showinfo("Éxito", "Alumno registrado exitosamente.")
     else:
         messagebox.showerror("Error", "Error al capturar imagen.")
 
 
+def registrar_nuevo_alumno(nro_alumno):
+
+   # Registra la información de un nuevo alumno en un archivo CSV.
+
+    with open(REGISTRO_ALUMNOS, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), nro_alumno])
+
+
 def solicitar_registro():
-    """
-    Solicita la contraseña de administrador y el número de alumno para registrar una nueva imagen.
-    """
 
     def registrar():
         password = entry_password.get()
@@ -118,7 +131,7 @@ def solicitar_registro():
     ventana_registro.title("Registro de Alumno")
     ventana_registro.geometry("400x200")
 
-    tk.Label(ventana_registro, text="Número de Alumno:").pack(pady=10)
+    tk.Label(ventana_registro, text="Número de legajo del alumno:").pack(pady=10)
     entry_alumno = tk.Entry(ventana_registro)
     entry_alumno.pack()
 
@@ -130,22 +143,18 @@ def solicitar_registro():
 
 
 def verificar_password(password):
-    """
-    Verifica si la contraseña proporcionada es correcta.
-    """
+
     with open(ADMIN_PASSWORD_FILE, "r") as f:
         return f.read().strip() == password
 
 
 def iniciar_interfaz():
-    """
-    Inicia la interfaz gráfica del sistema.
-    """
+
     ventana = tk.Tk()
-    ventana.title("Sistema de Acceso")
+    ventana.title("Sistema de Acceso a laboratorio")
     ventana.geometry("400x300")
 
-    tk.Label(ventana, text="Número de Alumno:", font=("Arial", 14)).pack(pady=20)
+    tk.Label(ventana, text="legajo del Alumno:", font=("Arial", 14)).pack(pady=20)
     entry_nro_alumno = tk.Entry(ventana, font=("Arial", 12))
     entry_nro_alumno.pack(pady=10)
 
@@ -167,5 +176,16 @@ if __name__ == "__main__":
 
     if not os.path.exists(IMAGENES_DIR):
         os.makedirs(IMAGENES_DIR)
+
+    # Crea los archivos CSV si no existen
+    if not os.path.exists(REGISTRO_ACCESOS):
+        with open(REGISTRO_ACCESOS, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Fecha y Hora", "Número de Alumno", "Estado"])
+
+    if not os.path.exists(REGISTRO_ALUMNOS):
+        with open(REGISTRO_ALUMNOS, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Fecha y Hora", "Número de Alumno"])
 
     iniciar_interfaz()

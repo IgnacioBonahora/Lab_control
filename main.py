@@ -31,18 +31,16 @@ def cargar_imagen_alumno(nro_alumno):
 
 
 def registrar_acceso(nro_alumno, acceso_concedido):
-    """
-    Registra cada intento de acceso en un archivo CSV.
-    """
+
+    #Registra cada intento de acceso en un archivo CSV.
+
     with open(REGISTRO_ACCESOS, mode='a', newline='') as file:
         writer = csv.writer(file)
         writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), nro_alumno, "Concedido" if acceso_concedido else "Denegado"])
 
 
 def comparar_imagen_con_captura(encoding_alumno, nro_alumno):
-    """
-    Captura una imagen en vivo y la compara con la imagen de referencia del alumno.
-    """
+
     cap = cv2.VideoCapture(1)
     if not cap.isOpened():
         print("Error: No se pudo abrir la cámara.")
@@ -71,6 +69,7 @@ def comparar_imagen_con_captura(encoding_alumno, nro_alumno):
     cv2.imshow("Verificación de acceso en tiempo real", frame)
     cv2.waitKey(2000)
     cv2.destroyAllWindows()
+    print(f"Alumno {nro_alumno}: {mensaje}")
 
 
 def verificar_acceso(nro_alumno):
